@@ -1,8 +1,10 @@
 // AxelRuiz-Sombras: shader framework for Fallout 4 VR 1.2.72.
 // Licensed under the GNU General Public License version 3: see LICENSE.
 //
-// Phase 0 skeleton: the plugin only loads and logs. The render core (D3D11 hooks, shader catalog,
-// shader replacement) arrives in phase 1, see docs/PLAN.md.
+// Phase 1: invisible render core (src/Render.cpp). See docs/PLAN.md.
+
+#include "Config.h"
+#include "Render.h"
 
 namespace
 {
@@ -25,7 +27,7 @@ namespace
 extern "C" __declspec(dllexport) constinit auto F4SEPlugin_Version = []() noexcept {
 	F4SE::PluginVersionData data{};
 	data.PluginName("AxelRuizSombras");
-	data.PluginVersion(REL::Version(0, 0, 1, 0));
+	data.PluginVersion(REL::Version(0, 1, 0, 0));
 	data.AuthorName("Axel");
 	data.UsesAddressLibrary(true);
 	data.IsLayoutDependent(true);
@@ -37,7 +39,7 @@ extern "C" __declspec(dllexport) bool F4SEAPI F4SEPlugin_Query(const F4SE::Query
 {
 	a_info->infoVersion = F4SE::PluginInfo::kVersion;
 	a_info->name = "AxelRuizSombras";
-	a_info->version = 0x00000100;
+	a_info->version = 0x00010000;
 	if (a_f4se->IsEditor()) {
 		return false;
 	}
@@ -52,6 +54,9 @@ extern "C" __declspec(dllexport) bool F4SEAPI F4SEPlugin_Load(const F4SE::LoadIn
 {
 	F4SE::Init(a_f4se, false);
 	InitLog();  // after Init: the log folder needs F4SE's save folder name (My Games\Fallout4VR\F4SE)
-	F4SE::log::info("AxelRuiz-Sombras 0.0.1 (phase 0 skeleton) loaded on runtime {}", REL::Module::get().version().string());
+	F4SE::AllocTrampoline(256);
+	F4SE::log::info("AxelRuiz-Sombras 0.1.0 (phase 1, invisible core) loaded on runtime {}", REL::Module::get().version().string());
+	sombras::LoadConfig();
+	sombras::render::Install();
 	return true;
 }

@@ -13,3 +13,6 @@ User-facing docs in Spanish, code and comments in English.
   point at the wrong object (verify NiRTTI via its constructor).
 - Coexist with ReShade (d3d11.dll in the game root) and BlurAway VR (DLAA): chain hooks, never overwrite them.
 - Mark functions by thread in comments: `[game]`, `[render]`, `[loader]`.
+- Phase 1 core: `src/Render.cpp` (device via the D3D11CreateDeviceAndSwapChain IAT, vtable-slot hooks by index with
+  untyped pointers, no d3d11.h; `SetShaders` call sites via write_call). Off-game tests: `tests/run.sh`.
+- Build on Axel's PC through Remote Control with `build.ps1` (temp dir, zip to C:\Users\cereBRO\Modding, nothing left behind).
