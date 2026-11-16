@@ -2,7 +2,7 @@
 # Usage (PowerShell): .\build.ps1 -Src <folder with this project> [-CLib <existing CommonLibF4VR checkout at 9057052>] [-CleanSrc]
 param([Parameter(Mandatory)][string]$Src, [string]$Out = "C:\Users\cereBRO\Modding", [string]$CLib = "", [switch]$CleanSrc)
 $ErrorActionPreference = "Stop"
-$Version = "0.1.0"
+$Version = "0.1.1"
 $W = Join-Path $env:TEMP "sombras"
 if (Test-Path $W) { Remove-Item $W -Recurse -Force }
 Copy-Item $Src $W -Recurse

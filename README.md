@@ -3,7 +3,7 @@
 Framework de shaders para **Fallout 4 VR 1.2.72**, en la línea de Community Shaders (Skyrim): un plugin F4SE
 que intercepta el renderer D3D11 del juego y añade efectos (*features*) independientes que se activan por INI.
 
-**Estado: fase 1 (núcleo invisible), versión 0.1.0.** El plugin captura el dispositivo D3D11, registra cada
+**Estado: fase 1 (núcleo invisible), versión 0.1.1.** El plugin captura el dispositivo D3D11, registra cada
 shader y cada render target en su log (`Documents\My Games\Fallout4VR\F4SE\AxelRuizSombras.log`) y entrega al
 juego su propia copia idéntica de cada shader para demostrar que se pueden sustituir. No cambia nada en pantalla.
 Opciones en `F4SE\Plugins\AxelRuizSombras.ini`.

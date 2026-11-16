@@ -80,6 +80,8 @@ namespace sombras::render
 			return g_ours.contains(a_shader);
 		}
 
+		void CheckContext();
+
 		void MaybeSummary()
 		{
 			const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -96,6 +98,7 @@ namespace sombras::render
 				std::scoped_lock l(g_oursLock);
 				ours = g_ours.size();
 			}
+			CheckContext();
 			F4SE::log::info("[summary] created VS {} PS {} CS {}, our copies {} (alive {}); PSSetShader {} ({} ours), SetShaders {} ({} with our PS)",
 				g_created[0].load(), g_created[1].load(), g_created[2].load(), g_copied.load(), ours,
 				g_psBinds.load(), g_psBindsOurs.load(), g_setShadersCalls.load(), g_setShadersPsOurs.load());
@@ -204,6 +207,7 @@ namespace sombras::render
 		void Hook_SetShaders(void* a_this, void* a_vs, void* a_hs, void* a_ds, void* a_ps)
 		{
 			g_setShadersCalls.fetch_add(1, std::memory_order_relaxed);
+			MaybeSummary();
 			if (a_ps) {
 				if (auto* d3d = *reinterpret_cast<void**>(static_cast<std::byte*>(a_ps) + 8); d3d && IsOurs(d3d)) {
 					g_setShadersPsOurs.fetch_add(1, std::memory_order_relaxed);
@@ -252,6 +256,29 @@ namespace sombras::render
 				}
 			}
 			return hr;
+		}
+	}
+
+	namespace
+	{
+		// [render] In 0.1.0 PSSetShader stopped reaching our hook about a minute in (the summary went silent). Log what the game's
+		// context pointer and its PSSetShader slot look like now, so we can tell a new context from a re-patched slot.
+		// Diagnostic only: re-patching a slot someone else chained to ours could loop.
+		void CheckContext()
+		{
+			static void*          lastCtx = nullptr;
+			static std::uintptr_t lastVtbl = 0, lastSlot = 0;
+			auto*                 ctx = *reinterpret_cast<void**>(REL::Module::get().base() + kImmediateContextRva);
+			if (!ctx) {
+				return;
+			}
+			const auto vtbl = *reinterpret_cast<std::uintptr_t*>(ctx);
+			const auto slot = reinterpret_cast<std::uintptr_t*>(vtbl)[kCtxPSSetShader];
+			if (ctx != lastCtx || vtbl != lastVtbl || slot != lastSlot) {
+				F4SE::log::info("[context] game context {:X} vtable {:X} PSSetShader slot {:X} ({}), our hook {:X}", reinterpret_cast<std::uintptr_t>(ctx), vtbl, slot,
+					slot == reinterpret_cast<std::uintptr_t>(&Hook_PSSetShader) ? "ours" : "NOT ours", reinterpret_cast<std::uintptr_t>(&Hook_PSSetShader));
+				lastCtx = ctx, lastVtbl = vtbl, lastSlot = slot;
+			}
 		}
 	}
 
