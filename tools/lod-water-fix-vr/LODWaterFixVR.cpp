@@ -18,14 +18,14 @@
 
 namespace
 {
-	const char*          kVersion = "1.0.1";
+	const char*          kVersion = "1.0.2";
 	const std::uintptr_t kWaterSystemPtr = 0x5932540;  // TESWaterSystem* (stored by its constructor at RVA 0x7cb230)
 	const std::uintptr_t kCtorStore = 0x7cb230;        // 48 89 0D 09 73 16 05 = mov [rip+0x5167309], rcx
 	const unsigned char  kCtorBytes[7] = { 0x48, 0x89, 0x0D, 0x09, 0x73, 0x16, 0x05 };
 
 	std::uintptr_t g_base = 0;
 	FILE*          g_log = nullptr;
-	DWORD          g_intervalMs = 30;
+	DWORD          g_intervalMs = 120;
 	bool           g_wantLog = false;  // [General] bLog: no log file unless asked for
 
 	bool Rd(std::uintptr_t a_addr, void* a_out, SIZE_T a_n)  // [worker] safe read of our own process
@@ -133,7 +133,7 @@ namespace
 			return true;
 		}
 		wcscpy(path + n - 3, L"ini");
-		g_intervalMs = GetPrivateProfileIntW(L"General", L"iIntervalMs", 30, path);
+		g_intervalMs = GetPrivateProfileIntW(L"General", L"iIntervalMs", 120, path);
 		if (g_intervalMs < 5) {
 			g_intervalMs = 5;
 		} else if (g_intervalMs > 10000) {
@@ -165,7 +165,7 @@ extern "C"
 	{
 		a_info->infoVersion = 1;
 		a_info->name = "LODWaterFixVR";
-		a_info->version = 0x01000100;
+		a_info->version = 0x01000200;
 		return true;
 	}
 
