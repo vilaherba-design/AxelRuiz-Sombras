@@ -1,10 +1,11 @@
 // AguaDiag: read-only diagnostic F4SE plugin for Fallout 4 VR 1.2.72.
 // Licensed under the GNU General Public License version 3 (see LICENSE at the repository root).
 //
-// Installs NO hook and writes nothing to the game. A background thread reads the game's water system
+// Installs NO hook. The only thing it ever writes is the "hidden" bit of water shapes, and only while the tester
+// toggles it with F7 / F8 (to see which kind of water plane is the one that looks wrong). A background thread reads the game's water system
 // (TESWaterSystem singleton, RVA 0x5932540, verified in the decrypted 1.2.72 exe: see README.md) through
 // ReadProcessMemory, so a stale pointer gives a failed read instead of a crash, and logs every change to
-// Documents\My Games\Fallout4VR\F4SE\AguaDiag.log. F7 writes a MARK line (press it when the water looks wrong).
+// Documents\My Games\Fallout4VR\F4SE\AguaDiag.log. F6 writes a MARK line (press it when the water looks wrong).
 //
 // No CommonLibF4 and no C++ runtime features beyond the basics: builds with any x64 Windows C++ compiler.
 #include <windows.h>
@@ -23,6 +24,9 @@ namespace
 	FILE*          g_log = nullptr;
 	LONGLONG       g_written = 0;
 	const LONGLONG kMaxLog = 64ll * 1024 * 1024;
+
+	bool g_hide[2] = { false, false };    // [poll thread] F7 hides type A water shapes, F8 type B
+	bool g_unhide[2] = { false, false };  // one pass that shows them again
 
 	bool Rd(std::uintptr_t a_addr, void* a_out, SIZE_T a_n)  // [poll thread] safe read of our own process
 	{
@@ -117,6 +121,27 @@ namespace
 					const auto shape = Get<std::uintptr_t>(p + 0x20);
 					const auto prop = Get<std::uintptr_t>(shape + 0x178);
 					const auto mat = Get<std::uintptr_t>(prop + 0x58);
+					const auto pflags = Get<std::uint32_t>(prop + 0x70);
+					const int  type = (pflags & 2) ? 0 : 1;  // 0 = tiles with property flag 2, 1 = the rest
+					if (shape && prop) {
+						auto* flags = reinterpret_cast<volatile LONG64*>(shape + 0x108);  // NiAVObject flags, bit 0 = hidden
+						if (g_hide[type]) {
+							InterlockedOr64(flags, 1);
+						} else if (g_unhide[type]) {
+							InterlockedAnd64(flags, ~1ll);
+						}
+					}
+					char       name[64]{};
+					const auto entry = Get<std::uintptr_t>(shape + 0x10);  // BSFixedString entry, text at +0x18
+					Rd(entry + 0x18, name, sizeof(name) - 1);
+					for (auto& c : name) {
+						if (c && (c < 32 || c > 126)) {
+							c = '?';
+						}
+					}
+					float pos[3]{};
+					Rd(shape + 0xA0, pos, sizeof(pos));  // world translation
+					a_b.Add("  type %c name '%s' pos %.0f %.0f %.0f\n", type ? 'B' : 'A', name, pos[0], pos[1], pos[2]);
 					a_b.Add("  shape %llx +0x100: ", static_cast<unsigned long long>(shape));
 					a_b.Hex(shape + 0x100, 0x20);
 					a_b.Add("\n  prop %llx: ", static_cast<unsigned long long>(prop));
@@ -161,20 +186,33 @@ namespace
 	{
 		static Buf bufs[2];
 		int        cur = 0;
-		bool       f7 = false;
+		bool       key[3] = { false, false, false };
 		unsigned   n = 0;
 		for (;;) {
 			Sleep(100);
-			const bool down = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
-			const bool mark = down && !f7;
-			f7 = down;
-			Buf& b = bufs[cur];
+			static const int vk[3] = { VK_F6, VK_F7, VK_F8 };
+			bool             hit[3];
+			for (int i = 0; i < 3; ++i) {
+				const bool down = (GetAsyncKeyState(vk[i]) & 0x8000) != 0;
+				hit[i] = down && !key[i];
+				key[i] = down;
+			}
+			for (int t = 0; t < 2; ++t) {
+				if (hit[t + 1]) {
+					g_hide[t] = !g_hide[t];
+					g_unhide[t] = !g_hide[t];
+					Log("KEY F%d: water type %c is now %s", 7 + t, 'A' + t, g_hide[t] ? "HIDDEN" : "shown");
+				}
+			}
+			const bool mark = hit[0];
+			Buf&       b = bufs[cur];
 			const Buf& old = bufs[cur ^ 1];
 			b.n = 0;
 			b.s[0] = 0;
 			Snapshot(b);
+			g_unhide[0] = g_unhide[1] = false;
 			if (mark) {
-				Log("MARK (F7) ------------------------------------------------");
+				Log("MARK (F6) ------------------------------------------------");
 			}
 			if (mark || b.n != old.n || memcmp(b.s, old.s, b.n) != 0) {
 				Log("SNAP %u%s", ++n, mark ? " full" : "");
@@ -221,13 +259,13 @@ extern "C"
 		OpenLog();
 		unsigned char got[7]{};
 		if (!Rd(g_base + kCtorStore, got, 7) || memcmp(got, kCtorBytes, 7) != 0) {
-			Log("AguaDiag 0.2: this is not the Fallout4VR.exe 1.2.72 it was made for. Doing nothing.");
+			Log("AguaDiag 0.3: this is not the Fallout4VR.exe 1.2.72 it was made for. Doing nothing.");
 			if (g_log) {
 				fflush(g_log);
 			}
 			return true;
 		}
-		Log("AguaDiag 0.2 loaded, base %llx. Read-only: no hooks. F7 = MARK.", static_cast<unsigned long long>(g_base));
+		Log("AguaDiag 0.3 loaded, base %llx. No hooks. F6 = MARK, F7 = hide/show water type A, F8 = hide/show type B.", static_cast<unsigned long long>(g_base));
 		fflush(g_log);
 		CloseHandle(CreateThread(nullptr, 0, Poll, nullptr, 0, nullptr));
 		return true;
