@@ -3,7 +3,7 @@
 Read-only F4SE plugin for Fallout 4 VR 1.2.72 used to study the "bright blue sheet" water bug: at some view
 angles parts of the loaded-cell water stop showing the real-time reflection and show a flat, bright surface.
 It installs no hook. A background thread reads the game's water system every 100 ms through `ReadProcessMemory`
-and logs every changed line to `Documents\My Games\Fallout4VR\F4SE\AguaDiag.log`. F9 writes a `MARK` line and a
+and logs every changed line to `Documents\My Games\Fallout4VR\F4SE\AguaDiag.log`. F7 writes a `MARK` line and a
 full snapshot.
 
 Build (any x64 Windows C++ compiler; from Linux with zig):

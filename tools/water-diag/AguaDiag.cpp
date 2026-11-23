@@ -4,7 +4,7 @@
 // Installs NO hook and writes nothing to the game. A background thread reads the game's water system
 // (TESWaterSystem singleton, RVA 0x5932540, verified in the decrypted 1.2.72 exe: see README.md) through
 // ReadProcessMemory, so a stale pointer gives a failed read instead of a crash, and logs every change to
-// Documents\My Games\Fallout4VR\F4SE\AguaDiag.log. F9 writes a MARK line (press it when the water looks wrong).
+// Documents\My Games\Fallout4VR\F4SE\AguaDiag.log. F7 writes a MARK line (press it when the water looks wrong).
 //
 // No CommonLibF4 and no C++ runtime features beyond the basics: builds with any x64 Windows C++ compiler.
 #include <windows.h>
@@ -161,20 +161,20 @@ namespace
 	{
 		static Buf bufs[2];
 		int        cur = 0;
-		bool       f9 = false;
+		bool       f7 = false;
 		unsigned   n = 0;
 		for (;;) {
 			Sleep(100);
-			const bool down = (GetAsyncKeyState(VK_F9) & 0x8000) != 0;
-			const bool mark = down && !f9;
-			f9 = down;
+			const bool down = (GetAsyncKeyState(VK_F7) & 0x8000) != 0;
+			const bool mark = down && !f7;
+			f7 = down;
 			Buf& b = bufs[cur];
 			const Buf& old = bufs[cur ^ 1];
 			b.n = 0;
 			b.s[0] = 0;
 			Snapshot(b);
 			if (mark) {
-				Log("MARK (F9) ------------------------------------------------");
+				Log("MARK (F7) ------------------------------------------------");
 			}
 			if (mark || b.n != old.n || memcmp(b.s, old.s, b.n) != 0) {
 				Log("SNAP %u%s", ++n, mark ? " full" : "");
@@ -221,13 +221,13 @@ extern "C"
 		OpenLog();
 		unsigned char got[7]{};
 		if (!Rd(g_base + kCtorStore, got, 7) || memcmp(got, kCtorBytes, 7) != 0) {
-			Log("AguaDiag 0.1: this is not the Fallout4VR.exe 1.2.72 it was made for. Doing nothing.");
+			Log("AguaDiag 0.2: this is not the Fallout4VR.exe 1.2.72 it was made for. Doing nothing.");
 			if (g_log) {
 				fflush(g_log);
 			}
 			return true;
 		}
-		Log("AguaDiag 0.1 loaded, base %llx. Read-only: no hooks. F9 = MARK.", static_cast<unsigned long long>(g_base));
+		Log("AguaDiag 0.2 loaded, base %llx. Read-only: no hooks. F7 = MARK.", static_cast<unsigned long long>(g_base));
 		fflush(g_log);
 		CloseHandle(CreateThread(nullptr, 0, Poll, nullptr, 0, nullptr));
 		return true;
