@@ -18,7 +18,7 @@
 
 namespace
 {
-	const char*          kVersion = "1.0.0";
+	const char*          kVersion = "1.0.1";
 	const std::uintptr_t kWaterSystemPtr = 0x5932540;  // TESWaterSystem* (stored by its constructor at RVA 0x7cb230)
 	const std::uintptr_t kCtorStore = 0x7cb230;        // 48 89 0D 09 73 16 05 = mov [rip+0x5167309], rcx
 	const unsigned char  kCtorBytes[7] = { 0x48, 0x89, 0x0D, 0x09, 0x73, 0x16, 0x05 };
@@ -26,6 +26,7 @@ namespace
 	std::uintptr_t g_base = 0;
 	FILE*          g_log = nullptr;
 	DWORD          g_intervalMs = 30;
+	bool           g_wantLog = false;  // [General] bLog: no log file unless asked for
 
 	bool Rd(std::uintptr_t a_addr, void* a_out, SIZE_T a_n)  // [worker] safe read of our own process
 	{
@@ -102,7 +103,7 @@ namespace
 			const auto n = HideLodWater(tiles);
 			total += n;
 			const DWORD now = GetTickCount();
-			if ((n || tiles != lastTiles) && now - lastLog > 5000) {  // at most one line every 5 s
+			if (g_log && (n || tiles != lastTiles) && now - lastLog > 10000) {  // at most one line every 10 s
 				Log("LOD water tiles: %u (hidden so far: %llu)", tiles, total);
 				lastLog = now;
 				lastTiles = tiles;
@@ -135,9 +136,10 @@ namespace
 		g_intervalMs = GetPrivateProfileIntW(L"General", L"iIntervalMs", 30, path);
 		if (g_intervalMs < 5) {
 			g_intervalMs = 5;
-		} else if (g_intervalMs > 1000) {
-			g_intervalMs = 1000;
+		} else if (g_intervalMs > 10000) {
+			g_intervalMs = 10000;
 		}
+		g_wantLog = GetPrivateProfileIntW(L"General", L"bLog", 0, path) != 0;
 		return GetPrivateProfileIntW(L"General", L"bEnabled", 1, path) != 0;
 	}
 }
@@ -163,20 +165,23 @@ extern "C"
 	{
 		a_info->infoVersion = 1;
 		a_info->name = "LODWaterFixVR";
-		a_info->version = 0x01000000;
+		a_info->version = 0x01000100;
 		return true;
 	}
 
 	__declspec(dllexport) bool F4SEPlugin_Load(const void*)  // [loader]
 	{
 		g_base = reinterpret_cast<std::uintptr_t>(GetModuleHandleW(nullptr));
-		OpenLog();
+		const bool enabled = ReadIni();
+		if (g_wantLog) {
+			OpenLog();
+		}
 		unsigned char got[7]{};
 		if (!Rd(g_base + kCtorStore, got, 7) || memcmp(got, kCtorBytes, 7) != 0) {
 			Log("LOD Water Fix VR %s: this is not Fallout4VR.exe 1.2.72. Doing nothing.", kVersion);
 			return true;
 		}
-		if (!ReadIni()) {
+		if (!enabled) {
 			Log("LOD Water Fix VR %s: bEnabled=0. Doing nothing.", kVersion);
 			return true;
 		}
